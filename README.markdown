@@ -413,6 +413,11 @@ SSL handshake if the `wss://` scheme is used.
     requirements of the [WebSocket RFC](https://datatracker.ietf.org/doc/html/rfc6455#section-4.1).
     If not provided, a key is randomly generated.
 
+* `keep_response`
+
+    If truth-y, the raw, plain-text response (status line and headers) will be
+    returned as the 3rd return value from `connect()`
+
 The SSL connection mode (`wss://`) requires at least `ngx_lua` 0.9.11 or OpenResty 1.7.4.1.
 
 [Back to TOC](#table-of-contents)

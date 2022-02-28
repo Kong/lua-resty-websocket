@@ -2323,13 +2323,12 @@ key: y7KXwBSpVrxtkR0O+bQt+Q==
             local opts = {
                 keep_response = true,
             }
-            local ok, err = wb:connect(uri, opts)
+            local ok, err, res = wb:connect(uri, opts)
             if not ok then
                 ngx.say("failed to connect: " .. err)
                 return
             end
 
-            local res = wb.response
             if not res then
                 ngx.say("no response string")
                 return

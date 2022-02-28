@@ -223,10 +223,6 @@ function _M.connect(self, uri, opts)
         return nil, "failed to receive response header: " .. err
     end
 
-    if keep_response then
-        self.response = header
-    end
-
     -- error("header: " .. header)
 
     -- FIXME: verify the response headers
@@ -236,7 +232,11 @@ function _M.connect(self, uri, opts)
         return nil, "bad HTTP response status line: " .. header
     end
 
-    return 1
+    if not keep_response then
+      header = nil
+    end
+
+    return 1, nil, header
 end
 
 
