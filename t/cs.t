@@ -2069,7 +2069,7 @@ failed to send close: bad status code
             local uri = "ws://127.0.0.1:" .. ngx.var.server_port .. "/s"
             local ok, err = wb:connect(uri)
             if not ok then
-                ngx.say("failed to connect: " .. err)
+                ngx.say("failed to connect: ", err)
                 return
             end
         }
@@ -2103,7 +2103,7 @@ qr/host: <127.0.0.1:\d+>/
             local uri = "ws://127.0.0.1:" .. ngx.var.server_port .. "/s"
             local ok, err = wb:connect(uri, { host = "client.test" })
             if not ok then
-                ngx.say("failed to connect: " .. err)
+                ngx.say("failed to connect: ", err)
                 return
             end
         }
@@ -2148,7 +2148,7 @@ host: <client.test>
             }
             local ok, err = wb:connect(uri, opts)
             if not ok then
-                ngx.say("failed to connect: " .. err)
+                ngx.say("failed to connect: ", err)
                 return
             end
         }
@@ -2196,7 +2196,7 @@ SSL server name: test.com
             }
             local ok, err = wb:connect(uri, opts)
             if not ok then
-                ngx.say("failed to connect: " .. err)
+                ngx.say("failed to connect: ", err)
                 return
             end
         }
@@ -2247,7 +2247,7 @@ GET /c
             }
             local ok, err = wb:connect(uri, opts)
             if not ok then
-                ngx.say("failed to connect: " .. err)
+                ngx.say("failed to connect: ", err)
                 return
             end
         }
@@ -2287,7 +2287,7 @@ SSL server name: test.com
             }
             local ok, err = wb:connect(uri, opts)
             if not ok then
-                ngx.say("failed to connect: " .. err)
+                ngx.say("failed to connect: ", err)
                 return
             end
         }
@@ -2325,7 +2325,7 @@ key: y7KXwBSpVrxtkR0O+bQt+Q==
             }
             local ok, err, res = wb:connect(uri, opts)
             if not ok then
-                ngx.say("failed to connect: " .. err)
+                ngx.say("failed to connect: ", err)
                 return
             end
 
