@@ -233,7 +233,7 @@ function _M.connect(self, uri, opts)
     end
 
     if not keep_response then
-      header = nil
+        header = nil
     end
 
     return 1, nil, header
