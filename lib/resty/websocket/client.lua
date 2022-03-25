@@ -157,7 +157,9 @@ function _M.connect(self, uri, opts)
             return nil, "custom Sec-WebSocket-Key must be a string"
         end
 
-        keep_response = opts.keep_response
+        if opts.keep_response then
+            keep_response = true
+        end
     end
 
     local ok, err
