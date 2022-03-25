@@ -143,10 +143,19 @@ function _M.connect(self, uri, opts)
         end
 
         host = opts.host
+        if host ~= nil and type(host) ~= "string" then
+            return nil, "custom host header must be a string"
+        end
 
         ssl_server_name = opts.ssl_server_name
+        if ssl_server_name ~= nil and type(ssl_server_name) ~= "string" then
+            return nil, "ssl_server_name must be a string"
+        end
 
         key = opts.key
+        if key ~= nil and type(key) ~= "string" then
+            return nil, "custom Sec-WebSocket-Key must be a string"
+        end
 
         keep_response = opts.keep_response
     end
