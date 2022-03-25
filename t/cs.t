@@ -2059,7 +2059,7 @@ failed to send close: bad status code
 
 
 
-=== TEST 29: default host header
+=== TEST 29: handshake with default host header
 --- http_config eval: $::HttpConfig
 --- config
     location = /c {
@@ -2127,7 +2127,7 @@ host: <client.test>
 
 
 
-=== TEST 31: SNI from host
+=== TEST 31: SNI derived from custom host header
 --- http_config eval: $::HttpConfig
 --- config
     listen 12345 ssl;
