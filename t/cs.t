@@ -2400,5 +2400,5 @@ key: y7KXwBSpVrxtkR0O+bQt+Q==
     }
 --- request
 GET /c
---- response_body_unlike
-no response string
+--- response_body_like
+^HTTP/1\.1 101 Switching Protocols.*
