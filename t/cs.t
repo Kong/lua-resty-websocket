@@ -6,7 +6,7 @@ use Protocol::WebSocket::Frame;
 
 repeat_each(2);
 
-plan tests => repeat_each() * (blocks() * 4) + 4;
+plan tests => repeat_each() * (blocks() * 4) + 2;
 
 my $pwd = cwd();
 
@@ -2127,7 +2127,7 @@ host: <client.test>
 
 
 
-=== TEST 31: SNI derived from custom host header
+=== TEST 31: SNI derived from custom host header (without port number)
 --- http_config eval: $::HttpConfig
 --- config
     listen 12345 ssl;
@@ -2175,7 +2175,55 @@ SSL server name: test.com
 
 
 
-=== TEST 32: custom SNI
+=== TEST 32: SNI derived from custom host header (with port number)
+--- http_config eval: $::HttpConfig
+--- config
+    listen 12345 ssl;
+    server_name test.com;
+    ssl_certificate ../../cert/test.crt;
+    ssl_certificate_key ../../cert/test.key;
+    server_tokens off;
+
+    location = /c {
+        content_by_lua_block {
+            local client = require "resty.websocket.client"
+            local wb, err = client:new()
+
+            local uri = "wss://127.0.0.1:12345/s"
+            local opts = {
+                host = "test.com:8443",
+                ssl_verify = false,
+            }
+            local ok, err = wb:connect(uri, opts)
+            if not ok then
+                ngx.say("failed to connect: ", err)
+                return
+            end
+        }
+    }
+
+    location = /s {
+        content_by_lua_block {
+            local server = require "resty.websocket.server"
+            local wb, err = server:new()
+            if not wb then
+                ngx.log(ngx.ERR, "failed to new websocket: ", err)
+                return ngx.exit(444)
+            end
+
+            ngx.log(ngx.INFO, string.format("host: <%s>", ngx.var.http_host))
+            ngx.log(ngx.INFO, "SSL server name: ", ngx.var.ssl_server_name)
+        }
+    }
+--- request
+GET /c
+--- error_log
+host: <test.com:8443>
+SSL server name: test.com:8443
+
+
+
+=== TEST 33: custom SNI
 --- http_config eval: $::HttpConfig
 --- config
     listen 12345 ssl;
@@ -2225,7 +2273,7 @@ GET /c
 
 
 
-=== TEST 33: custom SNI and host
+=== TEST 34: custom SNI and host
 --- http_config eval: $::HttpConfig
 --- config
     listen 12345 ssl;
@@ -2274,7 +2322,7 @@ SSL server name: test.com
 
 
 
-=== TEST 34: overriding the Sec-WebSocket-Key header
+=== TEST 35: overriding the Sec-WebSocket-Key header
 --- http_config eval: $::HttpConfig
 --- config
     location = /c {
@@ -2312,7 +2360,7 @@ key: y7KXwBSpVrxtkR0O+bQt+Q==
 
 
 
-=== TEST 35: keeping the server response
+=== TEST 36: keeping the server response
 --- http_config eval: $::HttpConfig
 --- config
     location = /c {
