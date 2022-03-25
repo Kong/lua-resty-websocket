@@ -14,6 +14,7 @@ local _send_frame = wbproto.send_frame
 local new_tab = wbproto.new_tab
 local tcp = ngx.socket.tcp
 local re_match = ngx.re.match
+local re_gsub = ngx.re.gsub
 local encode_base64 = ngx.encode_base64
 local concat = table.concat
 local char = string.char
