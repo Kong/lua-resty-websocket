@@ -201,7 +201,7 @@ function _M.connect(self, uri, opts)
     end
     if count > 0 then
         -- being a reused connection (must have done handshake)
-        return 1
+        return 1, nil, "connection reused"
     end
 
     local custom_headers
@@ -256,7 +256,7 @@ function _M.connect(self, uri, opts)
         return nil, "bad HTTP response status line: " .. header
     end
 
-    return 1
+    return 1, nil, header
 end
 
 

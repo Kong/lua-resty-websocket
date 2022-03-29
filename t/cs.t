@@ -2526,3 +2526,108 @@ SSL server name: <test.com>
 GET /c
 --- error_log
 key: y7KXwBSpVrxtkR0O+bQt+Q==
+
+
+
+=== TEST 38: server handshake response string
+--- http_config eval: $::HttpConfig
+--- config
+    location = /c {
+        content_by_lua_block {
+            local client = require "resty.websocket.client"
+            local wb, err = client:new()
+            local uri = "ws://127.0.0.1:" .. ngx.var.server_port .. "/s"
+            local ok, err, res = wb:connect(uri)
+            if not ok then
+                ngx.say("failed to connect: ", err)
+                return
+            end
+
+            if not res then
+                ngx.say("no response string")
+                return
+            end
+            ngx.say(res)
+        }
+    }
+
+    location = /s {
+        content_by_lua_block {
+            local server = require "resty.websocket.server"
+            local wb, err = server:new()
+            if not wb then
+                ngx.log(ngx.ERR, "failed to new websocket: ", err)
+                return ngx.exit(444)
+            end
+        }
+    }
+--- request
+GET /c
+--- response_body_like
+^HTTP\/1\.1 101 Switching Protocols.*
+--- no_error_log
+[error]
+[warn]
+
+
+
+=== TEST 39: server handshake response string (reused connection)
+--- http_config eval: $::HttpConfig
+--- config
+    location = /c {
+        content_by_lua_block {
+            local client = require "resty.websocket.client"
+            local wb, err = client:new()
+            local uri = "ws://127.0.0.1:" .. ngx.var.server_port .. "/s"
+            local ok, err, res = wb:connect(uri)
+            if not ok then
+                ngx.say("failed to connect: ", err)
+                return
+            end
+
+            if not res then
+                ngx.say("no response string")
+                return
+            end
+
+            if not res:match("^HTTP/1%.1 101 Switching Protocols\r\n") then
+                ngx.say("invalid response string")
+                return
+            end
+
+            ok, err = wb:set_keepalive()
+            if not ok then
+                ngx.say("failed to enable keepalive: ", err)
+                return
+            end
+
+            wb = client:new()
+            ok, err, res = wb:connect(uri)
+            if not ok then
+                ngx.say("second connect failed: ", err)
+                return
+            end
+
+            ngx.say(res)
+        }
+    }
+
+    location = /s {
+        content_by_lua_block {
+            local server = require "resty.websocket.server"
+            local wb, err = server:new()
+            if not wb then
+                ngx.log(ngx.ERR, "failed to new websocket: ", err)
+                return ngx.exit(444)
+            end
+
+            ngx.sleep(1)
+        }
+    }
+--- request
+GET /c
+--- response_body
+connection reused
+--- no_error_log
+[error]
+[warn]
