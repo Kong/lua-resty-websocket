@@ -1,5 +1,5 @@
 package = "lua-resty-websocket-kong"
-version = "scm-1"
+version = "0.1.0"
 source = {
    url = "git://github.com/kong/lua-resty-websocket",
 }
