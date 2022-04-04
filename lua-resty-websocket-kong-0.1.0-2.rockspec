@@ -1,5 +1,5 @@
 package = "lua-resty-websocket-kong"
-version = "0.1.0-1"
+version = "0.1.0-2"
 source = {
   url = "git://github.com/kong/lua-resty-websocket",
   tag = "0.1.0",
@@ -11,7 +11,7 @@ description = {
     that contains additional features--many of which may or may not be
     merged into OpenResty at some point.
   ]],
-  license = "Apache 2.0",
+  license = "2-clause BSD",
   homepage = "https://github.com/Kong/lua-resty-websocket"
 }
 dependencies = {}
