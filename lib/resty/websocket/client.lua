@@ -251,9 +251,13 @@ function _M.connect(self, uri, opts)
 
     -- FIXME: verify the response headers
 
-    m, err = re_match(header, [[^\s*HTTP/1\.1\s+]], "jo")
+    m, err = re_match(header, [[^\s*HTTP/1\.1\s+(\d{3})]], "jo")
     if not m then
         return nil, "bad HTTP response status line: " .. header
+    end
+
+    if m[1] ~= "101" then
+        return nil, "unexpected HTTP response code: " .. m[1], header
     end
 
     return 1, nil, header

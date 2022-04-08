@@ -2631,3 +2631,37 @@ connection reused
 --- no_error_log
 [error]
 [warn]
+
+
+
+=== TEST 40: server handshake response code must be 101
+--- http_config eval: $::HttpConfig
+--- config
+    location = /c {
+        content_by_lua_block {
+            local client = require "resty.websocket.client"
+            local wb, err = client:new()
+            local uri = "ws://127.0.0.1:" .. ngx.var.server_port .. "/s"
+            local ok, err, res = wb:connect(uri)
+            if ok then
+                ngx.say("unexpected connection success")
+                return
+            end
+
+            ngx.say("error: \"", err, "\"")
+            ngx.say("response:\n", res)
+        }
+    }
+
+    location = /s {
+        return 400;
+    }
+--- request
+GET /c
+--- response_body_like
+^error: "unexpected HTTP response code: 400"
+response:
+HTTP\/1\.1 400 Bad Request.*
+--- no_error_log
+[error]
+[warn]
