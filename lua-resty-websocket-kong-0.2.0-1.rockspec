@@ -1,8 +1,8 @@
 package = "lua-resty-websocket-kong"
-version = "0.1.0-2"
+version = "0.2.0-1"
 source = {
   url = "git://github.com/kong/lua-resty-websocket",
-  tag = "0.1.0",
+  tag = "0.2.0",
 }
 description = {
   summary = "Kong-managed fork of lua-resty-websocket",
