@@ -23,18 +23,11 @@ local ngx_log = ngx.log
 local ngx_DEBUG = ngx.DEBUG
 local ffi_new = ffi.new
 local ffi_string = ffi.string
-local buffer = require "string.buffer"
 
 
 local ok, new_tab = pcall(require, "table.new")
 if not ok then
     new_tab = function (narr, nrec) return {} end
-end
-
-local DEBUG = false
-
-local function printf(...)
-  return print(string.format(...))
 end
 
 
@@ -69,7 +62,6 @@ local function get_string_buf(size)
     return str_buf
 end
 
-local buf = buffer.new(2^24)
 
 function _M.recv_frame(sock, max_payload_len, force_masking)
     local data, err = sock:receive(2)
@@ -200,8 +192,6 @@ function _M.recv_frame(sock, max_payload_len, force_masking)
                 code = bor(lshift(fst, 8), snd)
 
                 if payload_len > 2 then
-                  assert(#buf == 0)
-
                     -- TODO string.buffer optimizations
                     local bytes = get_string_buf(payload_len - 2)
                     for i = 3, payload_len do
@@ -237,12 +227,13 @@ function _M.recv_frame(sock, max_payload_len, force_masking)
 
     local msg
     if mask then
-        buf:set(data)
-        local bytes = buf:ref()
+        -- TODO string.buffer optimizations
+        local bytes = get_string_buf(payload_len)
         for i = 1, payload_len do
-            bytes[3 + i] = bxor(bytes[3 + i], bytes[(i - 1) % 4])
+            bytes[i - 1] = bxor(byte(data, 4 + i),
+                                byte(data, (i - 1) % 4 + 1))
         end
-        msg = buf:skip(4):get(payload_len)
+        msg = ffi_string(bytes, payload_len)
 
     else
         msg = data
@@ -251,102 +242,103 @@ function _M.recv_frame(sock, max_payload_len, force_masking)
     return msg, types[opcode], not fin and "again" or nil
 end
 
+
 local function build_frame(fin, opcode, payload_len, payload, masking)
-  assert(#buf == 0)
-
-  buf:putf("%c", bor(opcode, (fin and 0x80 or 0x0)))
-
-  local mask_bit = masking and 0x80 or 0x0
-
-  -- 7 bit length
-  if payload_len <= 125 then
-    buf:putf("%c", bor(payload_len, mask_bit))
-
-  -- 7 + 16 bit length
-  elseif payload_len <= 65535 then
-    buf:putf("%c%c%c",
-             bor(126, mask_bit),
-             band(rshift(payload_len, 8), 0xff),
-             band(payload_len, 0xff))
-
-  -- 7 + 64 bit length
-  else
-    if band(payload_len, 0x7fffffff) < payload_len then
-      return nil, "payload too big"
+    -- XXX optimize this when we have string.buffer in LuaJIT 2.1
+    local fst
+    if fin then
+        fst = bor(0x80, opcode)
+    else
+        fst = opcode
     end
 
-    -- XXX we only support 31-bit length here
-    buf:putf("%c%c%c%c%c%c%c%c%c",
-             bor(127, mask_bit),
-             0, 0, 0, 0,
-             band(rshift(payload_len, 24), 0xff),
-             band(rshift(payload_len, 16), 0xff),
-             band(rshift(payload_len, 8), 0xff),
-             band(payload_len, 0xff))
-  end
+    local snd, extra_len_bytes
+    if payload_len <= 125 then
+        snd = payload_len
+        extra_len_bytes = ""
 
-  if masking then
-    local key = rand(0xffffffff)
-    local mask_offset = #buf
+    elseif payload_len <= 65535 then
+        snd = 126
+        extra_len_bytes = char(band(rshift(payload_len, 8), 0xff),
+                               band(payload_len, 0xff))
 
-    buf:putf("%c%c%c%c%s",
-      band(rshift(key, 24), 0xff),
-      band(rshift(key, 16), 0xff),
-      band(rshift(key, 8), 0xff),
-      band(key, 0xff),
-      payload
-    )
+    else
+        if band(payload_len, 0x7fffffff) < payload_len then
+            return nil, "payload too big"
+        end
 
-    local offset = mask_offset + 4
-    local ptr = buf:ref()
-
-    for i = 0, payload_len - 1 do
-      ptr[offset + i] = bxor(ptr[offset + i], ptr[mask_offset + (i % 4)])
+        snd = 127
+        -- XXX we only support 31-bit length here
+        extra_len_bytes = char(0, 0, 0, 0, band(rshift(payload_len, 24), 0xff),
+                               band(rshift(payload_len, 16), 0xff),
+                               band(rshift(payload_len, 8), 0xff),
+                               band(payload_len, 0xff))
     end
 
-  else
-    buf:put(payload)
-  end
+    local masking_key
+    if masking then
+        -- set the mask bit
+        snd = bor(snd, 0x80)
+        local key = rand(0xffffffff)
+        masking_key = char(band(rshift(key, 24), 0xff),
+                           band(rshift(key, 16), 0xff),
+                           band(rshift(key, 8), 0xff),
+                           band(key, 0xff))
 
-  return buf:get()
+        -- TODO string.buffer optimizations
+        local bytes = get_string_buf(payload_len)
+        for i = 1, payload_len do
+            bytes[i - 1] = bxor(byte(payload, i),
+                                byte(masking_key, (i - 1) % 4 + 1))
+        end
+        payload = ffi_string(bytes, payload_len)
+
+    else
+        masking_key = ""
+    end
+
+    return char(fst, snd) .. extra_len_bytes .. masking_key .. payload
 end
-
 _M.build_frame = build_frame
 
+
 function _M.send_frame(sock, fin, opcode, payload, max_payload_len, masking)
-  if not payload then
-    payload = ""
+    -- ngx.log(ngx.WARN, ngx.var.uri, ": masking: ", masking)
 
-  elseif type(payload) ~= "string" then
-    payload = tostring(payload)
-  end
+    if not payload then
+        payload = ""
 
-  local payload_len = #payload
-
-  if payload_len > max_payload_len then
-    return nil, "payload too big"
-  end
-
-  if band(opcode, 0x8) ~= 0 then
-    -- being a control frame
-    if payload_len > 125 then
-      return nil, "too much payload for control frame"
+    elseif type(payload) ~= "string" then
+        payload = tostring(payload)
     end
-    if not fin then
-      return nil, "fragmented control frame"
+
+    local payload_len = #payload
+
+    if payload_len > max_payload_len then
+        return nil, "payload too big"
     end
-  end
 
-  local frame, err = build_frame(fin, opcode, payload_len, payload, masking)
-  if not frame then
-    return nil, "failed to build frame: " .. err
-  end
+    if band(opcode, 0x8) ~= 0 then
+        -- being a control frame
+        if payload_len > 125 then
+            return nil, "too much payload for control frame"
+        end
+        if not fin then
+            return nil, "fragmented control frame"
+        end
+    end
 
-  local bytes, err = sock:send(frame)
-  if not bytes then
-    return nil, "failed to send frame: " .. err
-  end
-  return bytes
+    local frame, err = build_frame(fin, opcode, payload_len, payload,
+                                   masking)
+    if not frame then
+        return nil, "failed to build frame: " .. err
+    end
+
+    local bytes, err = sock:send(frame)
+    if not bytes then
+        return nil, "failed to send frame: " .. err
+    end
+    return bytes
 end
 
 
