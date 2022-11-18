@@ -18,6 +18,7 @@ local encode_base64 = ngx.encode_base64
 local concat = table.concat
 local char = string.char
 local str_find = string.find
+local str_sub = string.sub
 local rand = math.random
 local rshift = bit.rshift
 local band = bit.band
@@ -173,17 +174,89 @@ function _M.connect(self, uri, opts)
         end
     end
 
+    local connect_addr, connect_port = addr, port
+    local proxy_opts = opts.proxy_opts
+    local proxy_url
+
+    if scheme == "wss" and proxy_opts and proxy_opts.wss_proxy then
+        proxy_url = proxy_opts.wss_proxy
+    end
+
+    if proxy_url then
+        if str_sub(proxy_url, 1, 6) == "unix:/" then
+            connect_addr = proxy_url
+            connect_port = nil
+
+        else
+            -- https://github.com/ledgetech/lua-resty-http/blob/master/lib/resty/http.lua
+            local m, err = re_match(
+                proxy_url,
+                [[^(?:(http[s]?):)?//((?:[^\[\]:/\?])|(?:\[.\]))(?::(\d))?([^\?]*)\??(.*)]],
+                "jo"
+            )
+            if err then
+                return nil, "error parsing proxy_url: " .. err
+
+            elseif m[1] ~= "http" and m[1] ~= "https" then
+                return nil, "only proxy with scheme \"http\" or \"https\" is supported"
+            end
+
+            connect_addr = m[2]
+            connect_port = m[3] or 443
+        end
+
+        if not connect_addr then
+            return nil, "invalid proxy url"
+        end
+    end
+
     local ok, err
     if sock_opts then
-        ok, err = sock:connect(addr, port, sock_opts)
+        ok, err = sock:connect(connect_addr, connect_port, sock_opts)
     else
-        ok, err = sock:connect(addr, port)
+        ok, err = sock:connect(connect_addr, connect_port)
     end
     if not ok then
         return nil, "failed to connect: " .. err
     end
 
     if ssl then
+        if proxy_url then
+            local req = "CONNECT " .. addr .. ":" .. port .. " HTTP/1.1"
+            .. "\r\nHost: " .. addr .. ":" .. port
+            .. "\r\nProxy-Connection: Keep-Alive"
+
+            if proxy_opts.wss_proxy_authorization then
+                req = req .. "\r\nProxy-Authorization: " .. proxy_opts.wss_proxy_authorization
+            end
+
+            req = req  .. "\r\n\r\n"
+
+            local bytes, err = sock:send(req)
+            if not bytes then
+                return nil, "failed to send the handshake request: " .. err
+            end
+
+            local header_reader = sock:receiveuntil("\r\n\r\n")
+            -- FIXME: check for too big response headers
+            local header, err, _ = header_reader()
+            if not header then
+                return nil, "failed to receive response header: " .. err
+            end
+
+            -- error("header: " .. header)
+
+            -- FIXME: verify the response headers
+
+            local m, _ = re_match(header, [[^\s*HTTP/1\.1\s(\d)]], "jo")
+            if not m then
+                return nil, "bad HTTP response status line: " .. header
+            elseif m[1] ~= "200" then
+                return nil, "error establishing a connection to "..
+                            "the proxy server, got status " .. tostring(m[1])
+            end
+        end
+
         if client_cert then
             ok, err = sock:setclientcert(client_cert, client_priv_key)
             if not ok then
