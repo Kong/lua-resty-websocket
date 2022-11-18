@@ -248,7 +248,7 @@ function _M.connect(self, uri, opts)
 
     local header_reader = sock:receiveuntil("\r\n\r\n")
     -- FIXME: check for too big response headers
-    local header, err, partial = header_reader()
+    local header, err, _ = header_reader()
     if not header then
         return nil, "failed to receive response header: " .. err
     end
@@ -257,7 +257,7 @@ function _M.connect(self, uri, opts)
 
     -- FIXME: verify the response headers
 
-    m, err = re_match(header, [[^\s*HTTP/1\.1\s+(\d{3})]], "jo")
+    m, _ = re_match(header, [[^\s*HTTP/1\.1\s+(\d{3})]], "jo")
     if not m then
         return nil, "bad HTTP response status line: " .. header
     end

@@ -15,7 +15,6 @@ local lshift = bit.lshift
 local rshift = bit.rshift
 --local tohex = bit.tohex
 local tostring = tostring
-local concat = table.concat
 local rand = math.random
 local type = type
 local debug = ngx.config.debug
