@@ -175,7 +175,7 @@ function _M.connect(self, uri, opts)
     end
 
     local connect_addr, connect_port = addr, port
-    local proxy_opts = opts.proxy_opts
+    local proxy_opts = opts and opts.proxy_opts
     local proxy_url
 
     if scheme == "wss" and proxy_opts and proxy_opts.wss_proxy then
