@@ -2665,3 +2665,93 @@ HTTP\/1\.1 400 Bad Request.*
 --- no_error_log
 [error]
 [warn]
+
+
+
+=== TEST 41: SSL with forward proxy
+--- no_check_leak
+--- http_config eval: $::HttpConfig
+--- config
+    listen 12345 ssl;
+    server_name test.com;
+    ssl_certificate ../../cert/test.crt;
+    ssl_certificate_key ../../cert/test.key;
+    server_tokens off;
+
+    location = /c {
+        content_by_lua '
+            local client = require "resty.websocket.client"
+            local wb, err = client:new()
+
+            for i = 1, 3 do
+                local uri = "wss://127.0.0.1:12345/s"
+                local ok, err = wb:connect(uri)
+                if not ok then
+                    ngx.say("failed to connect: " .. err)
+                    return
+                end
+
+                local data = "hello " .. i
+                local bytes, err = wb:send_text(data)
+                if not bytes then
+                    ngx.say("failed to send frame: ", err)
+                    return
+                end
+
+                local typ
+                data, typ, err = wb:recv_frame()
+                if not data then
+                    ngx.say("failed to receive 2nd frame: ", err)
+                    return
+                end
+
+                ngx.say("received: ", data, " (", typ, ")")
+
+                local ok, err = wb:set_keepalive()
+                if not ok then
+                    ngx.say("failed to recycle conn: ", err)
+                    return
+                end
+            end
+        ';
+    }
+
+    location = /s {
+        content_by_lua '
+            local server = require "resty.websocket.server"
+            local wb, err = server:new()
+            if not wb then
+                ngx.log(ngx.ERR, "failed to new websocket: ", err)
+                return ngx.exit(444)
+            end
+
+            while true do
+                local data, typ, err = wb:recv_frame()
+                if not data then
+                    -- ngx.log(ngx.ERR, "failed to receive a frame: ", err)
+                    return ngx.exit(444)
+                end
+
+                -- send it back!
+                local bytes, err = wb:send_text(data)
+                if not bytes then
+                    ngx.log(ngx.ERR, "failed to send the 2nd text: ", err)
+                    return ngx.exit(444)
+                end
+            end
+        ';
+    }
+--- request
+GET /c
+--- response_body
+received: hello 1 (text)
+received: hello 2 (text)
+received: hello 3 (text)
+
+--- no_error_log
+[error]
+[warn]
+
+--- timeout: 10
+
+
