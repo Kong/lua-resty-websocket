@@ -2671,6 +2671,17 @@ HTTP\/1\.1 400 Bad Request.*
 === TEST 41: SSL with forward proxy
 --- no_check_leak
 --- http_config eval: $::HttpConfig
+--- main_config
+    stream {
+        server {
+            listen 16796;
+
+            error_log logs/error.log debug;
+            content_by_lua_block {
+                require("t.forward-proxy-server").connect()
+            }
+        }
+    }
 --- config
     listen 12345 ssl;
     server_name test.com;
@@ -2683,35 +2694,39 @@ HTTP\/1\.1 400 Bad Request.*
             local client = require "resty.websocket.client"
             local wb, err = client:new()
 
-            for i = 1, 3 do
-                local uri = "wss://127.0.0.1:12345/s"
-                local ok, err = wb:connect(uri)
-                if not ok then
-                    ngx.say("failed to connect: " .. err)
-                    return
-                end
+            local uri = "wss://127.0.0.1:12345/s"
+            local ok, err = wb:connect(uri, {
+                proxy_opts = {
+                    wss_proxy = "http://127.0.0.1:16796",
+                },
+            })
+            if not ok then
+                ngx.say("failed to connect: " .. err)
+                return
+            end
 
-                local data = "hello " .. i
-                local bytes, err = wb:send_text(data)
-                if not bytes then
-                    ngx.say("failed to send frame: ", err)
-                    return
-                end
+            local data = "hello"
+            local bytes, err = wb:send_text(data)
+            if not bytes then
+                ngx.say("failed to send frame: ", err)
+                return
+            end
 
-                local typ
-                data, typ, err = wb:recv_frame()
-                if not data then
-                    ngx.say("failed to receive 2nd frame: ", err)
-                    return
-                end
+            local typ
+            data, typ, err = wb:recv_frame()
+            if not data then
+                ngx.say("failed to receive 2nd frame: ", err)
+                return
+            end
 
-                ngx.say("received: ", data, " (", typ, ")")
+            ngx.say("received: ", data, " (", typ, ")")
 
-                local ok, err = wb:set_keepalive()
-                if not ok then
-                    ngx.say("failed to recycle conn: ", err)
-                    return
-                end
+            -- note our mock forward proxy server does not support
+            -- keepalive, so we must close it here
+            local ok, err = wb:close()
+            if not ok then
+                ngx.say("failed to close conn: ", err)
+                return
             end
         ';
     }
@@ -2744,14 +2759,125 @@ HTTP\/1\.1 400 Bad Request.*
 --- request
 GET /c
 --- response_body
-received: hello 1 (text)
-received: hello 2 (text)
-received: hello 3 (text)
+received: hello (text)
 
 --- no_error_log
 [error]
 [warn]
 
---- timeout: 10
+
+
+=== TEST 42: SSL with forward proxy with auth
+--- no_check_leak
+--- http_config eval: $::HttpConfig
+--- main_config
+    stream {
+        server {
+            listen 16796;
+
+            error_log logs/error.log debug;
+            content_by_lua_block {
+                require("t.forward-proxy-server").connect({
+                    basic_auth = ngx.encode_base64("user:pass"),
+                })
+            }
+        }
+    }
+--- config
+    listen 12345 ssl;
+    server_name test.com;
+    ssl_certificate ../../cert/test.crt;
+    ssl_certificate_key ../../cert/test.key;
+    server_tokens off;
+
+    location = /c {
+        content_by_lua '
+            local client = require "resty.websocket.client"
+            local wb, err = client:new()
+
+            local uri = "wss://127.0.0.1:12345/s"
+            local ok, err = wb:connect(uri, {
+                proxy_opts = {
+                    wss_proxy = "http://127.0.0.1:16796",
+                },
+            })
+            if ok then
+                ngx.say("connect ok")
+                return
+            end
+            ngx.say("failed to connect without auth: " .. err)
+
+            local uri = "wss://127.0.0.1:12345/s"
+            local ok, err = wb:connect(uri, {
+                proxy_opts = {
+                    wss_proxy = "http://127.0.0.1:16796",
+                    wss_proxy_authorization = "Basic " .. ngx.encode_base64("user:pass")
+                },
+            })
+            if not ok then
+                ngx.say("failed to connect: " .. err)
+                return
+            end
+
+            local data = "hello"
+            local bytes, err = wb:send_text(data)
+            if not bytes then
+                ngx.say("failed to send frame: ", err)
+                return
+            end
+
+            local typ
+            data, typ, err = wb:recv_frame()
+            if not data then
+                ngx.say("failed to receive 2nd frame: ", err)
+                return
+            end
+
+            ngx.say("received: ", data, " (", typ, ")")
+
+            -- note our mock forward proxy server does not support
+            -- keepalive, so we must close it here
+            local ok, err = wb:close()
+            if not ok then
+                ngx.say("failed to close conn: ", err)
+                return
+            end
+        ';
+    }
+
+    location = /s {
+        content_by_lua '
+            local server = require "resty.websocket.server"
+            local wb, err = server:new()
+            if not wb then
+                ngx.log(ngx.ERR, "failed to new websocket: ", err)
+                return ngx.exit(444)
+            end
+
+            while true do
+                local data, typ, err = wb:recv_frame()
+                if not data then
+                    -- ngx.log(ngx.ERR, "failed to receive a frame: ", err)
+                    return ngx.exit(444)
+                end
+
+                -- send it back!
+                local bytes, err = wb:send_text(data)
+                if not bytes then
+                    ngx.log(ngx.ERR, "failed to send the 2nd text: ", err)
+                    return ngx.exit(444)
+                end
+            end
+        ';
+    }
+--- request
+GET /c
+--- response_body
+failed to connect without auth: error establishing a connection to the proxy server, got status 401
+received: hello (text)
+
+--- no_error_log
+[error]
+[warn]
 
 

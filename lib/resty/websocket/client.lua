@@ -191,7 +191,7 @@ function _M.connect(self, uri, opts)
             -- https://github.com/ledgetech/lua-resty-http/blob/master/lib/resty/http.lua
             local m, err = re_match(
                 proxy_url,
-                [[^(?:(http[s]?):)?//((?:[^\[\]:/\?])|(?:\[.\]))(?::(\d))?([^\?]*)\??(.*)]],
+                [[^(?:(http[s]?):)?//((?:[^\[\]:/\?]+)|(?:\[.+\]))(?::(\d+))?([^\?]*)\??(.*)]],
                 "jo"
             )
             if err then
@@ -248,7 +248,7 @@ function _M.connect(self, uri, opts)
 
             -- FIXME: verify the response headers
 
-            local m, _ = re_match(header, [[^\s*HTTP/1\.1\s(\d)]], "jo")
+            local m, _ = re_match(header, [[^\s*HTTP/1\.1\s+(\d+)]], "jo")
             if not m then
                 return nil, "bad HTTP response status line: " .. header
             elseif m[1] ~= "200" then
