@@ -492,7 +492,7 @@ function _M.get_resp_headers(self)
 
     local iter, err = re_gmatch(self.resp_header .. "\r\n", "([^:\\s]+):\\s*(.*?)\r\n", "jo")
     if err then
-        return nil, "failed to receive response header: " .. err
+        return nil, "failed to parse response header: " .. err
     end
 
     -- gather all response headers
@@ -502,7 +502,7 @@ function _M.get_resp_headers(self)
     while true do
         local m, err = iter()
         if err then
-            return nil, "failed to receive response header: " .. err
+            return nil, "failed to parse response header: " .. err
         end
 
         if not m then
