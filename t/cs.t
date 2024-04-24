@@ -2927,7 +2927,6 @@ received: hello (text)
                 ngx.log(ngx.ERR, "failed to send the 1st text: ", err)
                 return ngx.exit(444)
             end
-
         ';
     }
 --- request

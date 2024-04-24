@@ -378,6 +378,7 @@ function _M.connect(self, uri, opts)
     end
 
     self.resp_headers = resp_headers
+
     return 1, nil, header
 end
 
