@@ -2881,3 +2881,64 @@ received: hello (text)
 [warn]
 
 
+=== TEST 43: client:get_resp_headers
+--- http_config eval: $::HttpConfig
+--- config
+    location = /c {
+        content_by_lua '
+            local client = require "resty.websocket.client"
+            local wb, err = client:new()
+            local uri = "ws://127.0.0.1:" .. ngx.var.server_port .. "/s"
+            -- ngx.say("uri: ", uri)
+            local ok, err = wb:connect(uri)
+            if not ok then
+                ngx.say("failed to connect: " .. err)
+                return
+            end
+
+            local data, typ, err = wb:recv_frame()
+            if not data then
+                ngx.say("failed to receive 1st frame: ", err)
+                return
+            end
+
+            ngx.say("1: received: ", data, " (", typ, ")")
+
+            local resp_headers = wb:get_resp_headers()
+
+            ngx.say(resp_headers["upgrade"])
+            ngx.say(resp_headers["connection"])
+            ngx.say(resp_headers["x-foo"])
+        ';
+    }
+
+    location = /s {
+        content_by_lua '
+            local server = require "resty.websocket.server"
+            ngx.header["x-foo"] = "bar"
+            local wb, err = server:new()
+            if not wb then
+                ngx.log(ngx.ERR, "failed to new websocket: ", err)
+                return ngx.exit(444)
+            end
+
+            local bytes, err = wb:send_text("你好, WebSocket!")
+            if not bytes then
+                ngx.log(ngx.ERR, "failed to send the 1st text: ", err)
+                return ngx.exit(444)
+            end
+
+        ';
+    }
+--- request
+GET /c
+--- response_body
+1: received: 你好, WebSocket! (text)
+websocket
+upgrade
+bar
+--- no_error_log
+[error]
+[warn]
+
+
