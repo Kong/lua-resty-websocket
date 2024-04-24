@@ -342,42 +342,7 @@ function _M.connect(self, uri, opts)
         return nil, "unexpected HTTP response code: " .. m[1], header
     end
 
-    -- gather all response headers
-
-    local iter, err = re_gmatch(header .. "\r\n", "([^:\\s]+):\\s*(.*?)\r\n", "jo")
-    if err then
-        return nil, "failed to receive response header: " .. err
-    end
-
-    local resp_headers = {}
-
-    while true do
-        local m, err = iter()
-        if err then
-            return nil, "failed to receive response header: " .. err
-        end
-
-        if not m then
-            -- no match found (any more)
-            break
-        end
-
-        local key = m[1]:lower():gsub("-", "_")
-        local val = m[2]
-
-        if resp_headers[key] then
-            if type(resp_headers[key]) ~= "table" then
-                resp_headers[key] = { resp_headers[key] }
-            end
-
-            insert(resp_headers[key], tostring(val))
-
-        else
-            resp_headers[key] = tostring(val)
-        end
-    end
-
-    self.resp_headers = resp_headers
+    self.resp_header = header
 
     return 1, nil, header
 end
@@ -521,7 +486,48 @@ end
 
 
 function _M.get_resp_headers(self)
-    return self.resp_headers
+    if self.resp_headers then
+        return self.resp_headers
+    end
+
+    local iter, err = re_gmatch(self.resp_header .. "\r\n", "([^:\\s]+):\\s*(.*?)\r\n", "jo")
+    if err then
+        return nil, "failed to receive response header: " .. err
+    end
+
+    -- gather all response headers
+
+    local resp_headers = {}
+
+    while true do
+        local m, err = iter()
+        if err then
+            return nil, "failed to receive response header: " .. err
+        end
+
+        if not m then
+            -- no match found (any more)
+            break
+        end
+
+        local key = m[1]:lower():gsub("-", "_")
+        local val = m[2]
+
+        if resp_headers[key] then
+            if type(resp_headers[key]) ~= "table" then
+                resp_headers[key] = { resp_headers[key] }
+            end
+
+            insert(resp_headers[key], tostring(val))
+
+        else
+            resp_headers[key] = tostring(val)
+        end
+    end
+
+    self.resp_headers = resp_headers
+
+    return resp_headers
 end
 
 
