@@ -2906,16 +2906,18 @@ received: hello (text)
 
             local resp_headers = wb:get_resp_headers()
 
-            ngx.say(resp_headers["upgrade"])
-            ngx.say(resp_headers["connection"])
-            ngx.say(resp_headers["x-foo"])
+            ngx.say(resp_headers.upgrade)
+            ngx.say(resp_headers.connection)
+            ngx.say(resp_headers.x_foo)
         ';
     }
 
     location = /s {
         content_by_lua '
             local server = require "resty.websocket.server"
+
             ngx.header["x-foo"] = "bar"
+
             local wb, err = server:new()
             if not wb then
                 ngx.log(ngx.ERR, "failed to new websocket: ", err)

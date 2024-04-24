@@ -362,7 +362,7 @@ function _M.connect(self, uri, opts)
             break
         end
 
-        local key = m[1]:lower()
+        local key = m[1]:lower():gsub("-", "_")
         local val = m[2]
 
         if resp_headers[key] then
