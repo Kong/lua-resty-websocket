@@ -63,7 +63,7 @@ size: 5
 --- request
 GET /t
 --- response_body
-size: 13
+size: 14
 --- no_error_log
 [error]
 
