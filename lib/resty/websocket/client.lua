@@ -14,8 +14,10 @@ local _send_frame = wbproto.send_frame
 local new_tab = wbproto.new_tab
 local tcp = ngx.socket.tcp
 local re_match = ngx.re.match
+local re_gmatch = ngx.re.gmatch
 local encode_base64 = ngx.encode_base64
 local concat = table.concat
+local insert = table.insert
 local char = string.char
 local str_find = string.find
 local str_sub = string.sub
@@ -27,6 +29,7 @@ local type = type
 local debug = ngx.config.debug
 local ngx_log = ngx.log
 local ngx_DEBUG = ngx.DEBUG
+local tostring = tostring
 local assert = assert
 local ssl_support = true
 
@@ -339,6 +342,8 @@ function _M.connect(self, uri, opts)
         return nil, "unexpected HTTP response code: " .. m[1], header
     end
 
+    self.resp_header = header
+
     return 1, nil, header
 end
 
@@ -477,6 +482,52 @@ function _M.set_keepalive(self, ...)
     end
 
     return sock:setkeepalive(...)
+end
+
+
+function _M.get_resp_headers(self)
+    if self.resp_headers then
+        return self.resp_headers
+    end
+
+    local iter, err = re_gmatch(self.resp_header .. "\r\n", "([^:\\s]+):\\s*(.*?)\r\n", "jo")
+    if err then
+        return nil, "failed to parse response header: " .. err
+    end
+
+    -- gather all response headers
+
+    local resp_headers = {}
+
+    while true do
+        local m, err = iter()
+        if err then
+            return nil, "failed to parse response header: " .. err
+        end
+
+        if not m then
+            -- no match found (any more)
+            break
+        end
+
+        local key = m[1]:lower():gsub("-", "_")
+        local val = m[2]
+
+        if resp_headers[key] then
+            if type(resp_headers[key]) ~= "table" then
+                resp_headers[key] = { resp_headers[key] }
+            end
+
+            insert(resp_headers[key], tostring(val))
+
+        else
+            resp_headers[key] = tostring(val)
+        end
+    end
+
+    self.resp_headers = resp_headers
+
+    return resp_headers
 end
 
 
