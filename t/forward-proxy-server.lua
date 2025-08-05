@@ -1,5 +1,6 @@
 local _M = {}
 
+local fmt = string.format
 local split = require("ngx.re").split
 
 local header_mt = {
@@ -17,6 +18,11 @@ local header_mt = {
 local function new_headers()
   return setmetatable({}, header_mt)
 end
+
+local function respond(msg, http_version)
+  ngx.print(fmt("HTTP/%s %s\r\n\r\n", http_version or "1.1", msg))
+end
+
 
 -- This is a very naive forward proxy, which accepts a CONNECT over HTTP, and
 -- then starts tunnelling the bytes blind (for end-to-end SSL).
@@ -48,6 +54,7 @@ function _M.connect(opts)
   until ngx.re.find(line, "^\\s*$", "jo")
 
 
+  local http_version = opts and opts.legacy_http_version and "1.0" or "1.1"
   local basic_auth = opts and opts.basic_auth
   if basic_auth then
     ngx.log(ngx.DEBUG, "checking proxy-authorization...")
@@ -55,7 +62,7 @@ function _M.connect(opts)
     local found = headers["proxy-authorization"]
     if not found then
       ngx.log(ngx.NOTICE, "client did not send proxy-authorization header")
-      ngx.print("HTTP/1.1 401 Unauthorized\r\n\r\n")
+      respond("401 Unauthorized", http_version)
       return ngx.exit(ngx.OK)
     end
 
@@ -63,7 +70,7 @@ function _M.connect(opts)
 
     if auth ~= basic_auth then
       ngx.log(ngx.NOTICE, "client sent incorrect proxy-authorization")
-      ngx.print("HTTP/1.1 403 Forbidden\r\n\r\n")
+      respond("403 Forbidden", http_version)
       return ngx.exit(ngx.OK)
     end
 
@@ -82,7 +89,7 @@ function _M.connect(opts)
   end
 
   -- Tell the client we are good to go
-  ngx.print("HTTP/1.1 200 OK\r\n\r\n")
+  respond("200 OK", http_version)
   ngx.flush()
 
   ngx.log(ngx.DEBUG, "tunneling started")
