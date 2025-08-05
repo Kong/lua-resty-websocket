@@ -251,7 +251,7 @@ function _M.connect(self, uri, opts)
 
             -- FIXME: verify the response headers
 
-            local m, _ = re_match(header, [[^\s*HTTP/1\.1\s+(\d+)]], "jo")
+            local m, _ = re_match(header, [[^\s*HTTP/1\.[01]\s+(\d+)]], "jo")
             if not m then
                 return nil, "bad HTTP response status line: " .. header
             elseif m[1] ~= "200" then
