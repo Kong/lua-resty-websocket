@@ -338,11 +338,11 @@ function _M.connect(self, uri, opts)
         return nil, "bad HTTP response status line: " .. header
     end
 
-    if m[1] ~= "101" then
+    self.resp_status_code = m[1]
+    self.resp_header = header
+    if self.resp_status_code ~= "101" then
         return nil, "unexpected HTTP response code: " .. m[1], header
     end
-
-    self.resp_header = header
 
     return 1, nil, header
 end
@@ -530,5 +530,8 @@ function _M.get_resp_headers(self)
     return resp_headers
 end
 
+function _M.get_resp_status_code(self)
+    return self.resp_status_code
+end
 
 return _M
