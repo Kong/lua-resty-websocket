@@ -6,7 +6,7 @@ use Protocol::WebSocket::Frame;
 
 repeat_each(2);
 
-plan tests => repeat_each() * 162;
+plan tests => repeat_each() * 162 + 6;
 
 my $pwd = cwd();
 
@@ -943,3 +943,34 @@ Sec-WebSocket-Protocol: chat
 --- no_error_log
 [error]
 --- error_code: 101
+
+
+
+=== TEST 23: client should not send a close frame when server responds non-101
+--- http_config eval: $::HttpConfig
+--- config
+    location = /c {
+        content_by_lua_block {
+            local client = require "resty.websocket.client"
+            local wb, err = client:new()
+            local uri = "ws://127.0.0.1:" .. ngx.var.server_port .. "/plain"
+            local ok, err, header = wb:connect(uri)
+            if ok then
+                ngx.say("unexpected ok: ", header)
+                return
+            end
+
+            ngx.say("connect result: ", err)
+        }
+    }
+
+    location = /plain {
+        default_type text/plain;
+        return 200 'plain http';
+    }
+--- request
+GET /c
+--- response_body
+connect result: unexpected HTTP response code: 200
+--- no_error_log
+[error]
