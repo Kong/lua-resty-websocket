@@ -30,10 +30,12 @@ jobs:
         - nginx: "1.21.4"
           openssl: "1.1.1s"
           lua_nginx_module: "master"
-          # v0.0.13 is bundled in OpenResty 1.21.4.2; master drifted out of
-          # compat with nginx 1.21.4 (ngx_stream_ssl_srv_conf_t undefined)
+          # v0.0.13: last tag compat with nginx 1.21.4 (master has
+          # ngx_stream_ssl_srv_conf_t removed, causing compile error)
           stream_lua_nginx_module: "v0.0.13"
-          lua_resty_core: "master"
+          # v0.1.27: last tag that requires stream module >= 13 (v0.0.13);
+          # v0.1.28+ bumped the requirement to 14 which we don't have
+          lua_resty_core: "v0.1.27"
 
     env:
       JOBS: 3
