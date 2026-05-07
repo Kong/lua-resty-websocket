@@ -3086,6 +3086,7 @@ GET /c
 
 === TEST 46: get_resp_headers and get_resp_status_code return nil if connect failed without response
 --- http_config eval: $::HttpConfig
+--- ONLY
 --- config
     location = /c {
         content_by_lua '
@@ -3094,10 +3095,11 @@ GET /c
             local uri = "ws://127.0.0.1:" .. ngx.var.server_port .. "/s"
             local ok, err = wb:connect(uri)
             if not ok then
-                local headers = wb:get_resp_headers()
+                local headers, err = wb:get_resp_headers()
                 local status_code = wb:get_resp_status_code()
                 ngx.say("1: status code: ", status_code)
                 ngx.say("2: headers: ", headers)
+                ngx.say("3: error: ", err)
                 return
             end
         ';
@@ -3113,6 +3115,7 @@ GET /c
 --- response_body
 1: status code: nil
 2: headers: nil
+3: error: response header not available
 --- no_error_log
 [error]
 [warn]
