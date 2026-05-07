@@ -3043,6 +3043,8 @@ received: hello (text)
 [error]
 [warn]
 
+
+
 === TEST 45: get_resp_status_code and headers when error connect
 --- http_config eval: $::HttpConfig
 --- config
@@ -3076,6 +3078,41 @@ GET /c
 --- response_body
 1: status code: 429
 2: retry-after: 30
+--- no_error_log
+[error]
+[warn]
+
+
+
+=== TEST 46: get_resp_headers and get_resp_status_code return nil if connect failed without response
+--- http_config eval: $::HttpConfig
+--- config
+    location = /c {
+        content_by_lua '
+            local client = require "resty.websocket.client"
+            local wb, err = client:new()
+            local uri = "ws://127.0.0.1:" .. ngx.var.server_port .. "/s"
+            local ok, err = wb:connect(uri)
+            if not ok then
+                local headers = wb:get_resp_headers()
+                local status_code = wb:get_resp_status_code()
+                ngx.say("1: status code: ", status_code)
+                ngx.say("2: headers: ", headers)
+                return
+            end
+        ';
+    }
+
+    location = /s {
+        content_by_lua '
+            return ngx.exit(ngx.HTTP_CLOSE)
+        ';
+    }
+--- request
+GET /c
+--- response_body
+1: status code: nil
+2: headers: nil
 --- no_error_log
 [error]
 [warn]
