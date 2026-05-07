@@ -3086,7 +3086,6 @@ GET /c
 
 === TEST 46: get_resp_headers and get_resp_status_code return nil if connect failed without response
 --- http_config eval: $::HttpConfig
---- ONLY
 --- config
     location = /c {
         content_by_lua '
