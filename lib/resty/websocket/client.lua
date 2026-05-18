@@ -505,6 +505,10 @@ function _M.get_resp_headers(self)
         return self.resp_headers
     end
 
+    if not self.resp_header then
+        return nil, "response header not available"
+    end
+
     local iter, err = re_gmatch(self.resp_header .. "\r\n", "([^:\\s]+):\\s*(.*?)\r\n", "jo")
     if err then
         return nil, "failed to parse response header: " .. err
