@@ -84,7 +84,12 @@ function _M.connect(self, uri, opts)
         return nil, "not initialized"
     end
 
-    local m, err = re_match(uri, [[^(wss?)://([^:/]+)(?::(\d+))?(.*)]], "jo")
+    -- The bracketed IPv6 branch must stay first. PCRE tries the branches from
+    -- left to right, so [^:/]+ would match "[fd99" of "[fd99::1]" and the
+    -- trailing (.*) would absorb the remainder, which turns a bad parse into a
+    -- silent success. The long-bracket level is [==[ ]==] because the pattern
+    -- itself contains "]]".
+    local m, err = re_match(uri, [==[^(wss?)://(\[[^\]]+\]|[^:/]+)(?::(\d+))?(.*)]==], "jo")
     if not m then
         if err then
             return nil, "failed to match the uri: " .. err
