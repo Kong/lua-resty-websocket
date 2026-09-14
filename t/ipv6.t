@@ -28,6 +28,8 @@ run_tests();
 __DATA__
 
 === TEST 1: bracketed IPv6 host with a port
+# The address must be unroutable. A refused connection, which is what a
+# reachable [::1] gives, produces no "connect() to" line in the error log.
 --- http_config eval: $::HttpConfig
 --- config
     location = /c {
@@ -35,7 +37,8 @@ __DATA__
             local client = require "resty.websocket.client"
             local wb = assert(client:new())
             wb:set_timeout(500)
-            local ok, err = wb:connect("ws://[::1]:65535/s")
+            -- nosemgrep: javascript.lang.security.detect-insecure-websocket
+            local ok, err = wb:connect("ws://[fd99::2]:65535/s")
             ngx.say("ok: ", tostring(ok))
             ngx.say("err: ", tostring(err))
         }
@@ -46,7 +49,7 @@ GET /c
 ^ok: nil
 err: failed to connect: .*$
 --- error_log
-connect() to [::1]:65535
+connect() to [fd99::2]:65535
 
 
 
@@ -58,6 +61,7 @@ connect() to [::1]:65535
             local client = require "resty.websocket.client"
             local wb = assert(client:new())
             wb:set_timeout(500)
+            -- nosemgrep: javascript.lang.security.detect-insecure-websocket
             local ok, err = wb:connect("ws://[fd99::1]/s")
             ngx.say("ok: ", tostring(ok))
             ngx.say("err: ", tostring(err))
@@ -106,6 +110,7 @@ connect() to [2001:db8::dead:beef]:443
             local client = require "resty.websocket.client"
             local wb = assert(client:new())
             wb:set_timeout(500)
+            -- nosemgrep: javascript.lang.security.detect-insecure-websocket
             local ok, err = wb:connect("ws://127.0.0.1:65535/s")
             ngx.say("ok: ", tostring(ok))
             ngx.say("err: ", tostring(err))
@@ -116,5 +121,31 @@ GET /c
 --- response_body
 ok: nil
 err: failed to connect: connection refused
+--- no_error_log
+[alert]
+
+
+
+=== TEST 5: an unclosed bracket is rejected, not silently mangled
+# The fallback host branch must not accept "[", or the trailing (.*) hides the
+# bad parse and a mangled host reaches the socket layer.
+--- http_config eval: $::HttpConfig
+--- config
+    location = /c {
+        content_by_lua_block {
+            local client = require "resty.websocket.client"
+            local wb = assert(client:new())
+            wb:set_timeout(500)
+            -- nosemgrep: javascript.lang.security.detect-insecure-websocket
+            local ok, err = wb:connect("ws://[fd99::1:65535/s")
+            ngx.say("ok: ", tostring(ok))
+            ngx.say("err: ", tostring(err))
+        }
+    }
+--- request
+GET /c
+--- response_body
+ok: nil
+err: bad websocket uri
 --- no_error_log
 [alert]
