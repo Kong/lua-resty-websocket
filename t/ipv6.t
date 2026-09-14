@@ -37,7 +37,7 @@ __DATA__
             local client = require "resty.websocket.client"
             local wb = assert(client:new())
             wb:set_timeout(500)
-            -- nosemgrep: javascript.lang.security.detect-insecure-websocket.detect-insecure-websocket
+            -- nosemgrep -- the plaintext scheme is what this block tests
             local ok, err = wb:connect("ws://[fd99::2]:65535/s")
             ngx.say("ok: ", tostring(ok))
             ngx.say("err: ", tostring(err))
@@ -61,7 +61,7 @@ connect() to [fd99::2]:65535
             local client = require "resty.websocket.client"
             local wb = assert(client:new())
             wb:set_timeout(500)
-            -- nosemgrep: javascript.lang.security.detect-insecure-websocket.detect-insecure-websocket
+            -- nosemgrep -- the plaintext scheme is what this block tests
             local ok, err = wb:connect("ws://[fd99::1]/s")
             ngx.say("ok: ", tostring(ok))
             ngx.say("err: ", tostring(err))
@@ -110,7 +110,7 @@ connect() to [2001:db8::dead:beef]:443
             local client = require "resty.websocket.client"
             local wb = assert(client:new())
             wb:set_timeout(500)
-            -- nosemgrep: javascript.lang.security.detect-insecure-websocket.detect-insecure-websocket
+            -- nosemgrep -- the plaintext scheme is what this block tests
             local ok, err = wb:connect("ws://127.0.0.1:65535/s")
             ngx.say("ok: ", tostring(ok))
             ngx.say("err: ", tostring(err))
@@ -136,7 +136,7 @@ err: failed to connect: connection refused
             local client = require "resty.websocket.client"
             local wb = assert(client:new())
             wb:set_timeout(500)
-            -- nosemgrep: javascript.lang.security.detect-insecure-websocket.detect-insecure-websocket
+            -- nosemgrep -- the plaintext scheme is what this block tests
             local ok, err = wb:connect("ws://[fd99::1:65535/s")
             ngx.say("ok: ", tostring(ok))
             ngx.say("err: ", tostring(err))
