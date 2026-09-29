@@ -84,7 +84,8 @@ function _M.connect(self, uri, opts)
         return nil, "not initialized"
     end
 
-    local m, err = re_match(uri, [[^(wss?)://([^:/]+)(?::(\d+))?(.*)]], "jo")
+    local m, err = re_match(uri,
+        [=[^(wss?)://((?:\[[^\]]+\])|(?:[^:/\[\]]+))(?::(\d+))?(.*)]=], "jo")
     if not m then
         if err then
             return nil, "failed to match the uri: " .. err
@@ -280,7 +281,15 @@ function _M.connect(self, uri, opts)
             end
         end
 
-        server_name = server_name or host or addr
+        if not server_name then
+            server_name = host or addr
+            if str_sub(server_name, 1, 1) == "[" then
+                local close = str_find(server_name, "]", 2, true)
+                if close then
+                    server_name = str_sub(server_name, 2, close - 1)
+                end
+            end
+        end
 
         ok, err = sock:sslhandshake(false, server_name, ssl_verify)
         if not ok then
